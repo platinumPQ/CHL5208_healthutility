@@ -54,7 +54,7 @@ fillU=function(Ut){
   return(Uf)
 }
 
-
+library(survival)
 
 # basic function to calculate HUS
 QALY=function(S,U,tt,wt=1,lam1=1,lam2=1){
@@ -126,7 +126,7 @@ Q_diff=c()
 
 set.seed(1)
 for(it in 1:1000){
-  #permutation
+  #permutation test
   S=rbind(S1,S2)
   U=rbind(U1,U2)
   index1=sample(1:(n1+n2),n1,replace=FALSE)
@@ -139,7 +139,6 @@ for(it in 1:1000){
   Q2a_perm=QALY(S2_perm,U2_perm,tt)
   Q_diff[it]=Q1a_perm-Q2a_perm
 }
-
 
 #calculate p-value
 pv=mean(abs(Q_diff)>=abs(Q_obs))
