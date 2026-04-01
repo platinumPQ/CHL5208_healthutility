@@ -1,8 +1,6 @@
 
-
-
 # linear fill: Ut is the vector of utility scores for one subject; it fills missing values linearly
-
+# linear interpolation of utility: impute with nearest values or mean (left+right) for middle position missing
 fillU=function(Ut){
   Uf=Ut
   whichna=which(is.na(Uf))
@@ -46,7 +44,7 @@ set.seed(1)
 
 
 #define utility functions
-tcut=3 #changing point at 3 months
+tcut=3 #trt effect changing point at 3 months
 
 scenario="A1"
 
@@ -54,6 +52,7 @@ U1_base=U2_base=rep(NA,tt)
 HR_true=1
 
 if(scenario=="A1"){
+  # both group starts healthy (0.8),but grp2 gets worse at timepoint3, both recover later
   U1_base[1]=U2_base[1]=0.8
   U1_base[tcut]=0.5
   U2_base[tcut]=0.3
@@ -62,6 +61,10 @@ if(scenario=="A1"){
   p_missU=0.3 #probability of utility being missing
   xa=c(1,3,6,9,15,21,27,36) #timepoints when utility is recorded
 }
+# U1_base
+# [1] 0.8  NA 0.5  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA
+# [14]  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA
+# [27]  NA  NA  NA  NA  NA  NA  NA  NA  NA 0.8
 
 U1_base=fillU(U1_base)
 U2_base=fillU(U2_base)
@@ -78,6 +81,9 @@ legend("bottomright", legend=c("Treatment 1", "Treatment 2"),col=c(2,4), lty=1, 
 #cov -> treatment assignment
 ba1=0.01    #older: choose more conservative (more trt2)
 ba2=0.2    #male: more conservative (more trt2)
+# imbalanced baseline covariates?
+# Treatment 2 patients are older, more male --> naturally worse survival and utilities
+# If we don't adjust --> biased comparison
 
 #cov -> survival
 beta_age=0.04
@@ -89,8 +95,6 @@ theta_sex1=-0.1  #male: worse
 theta_age2=-0.01 #same for trt2
 theta_sex2=-0.1
 
-#trt2 has more males/older, and males/older tend to have worse survival and worse utility
-#without adjusting, comparison will be biased
 
 ###########################################################
 
@@ -113,6 +117,8 @@ theta_sex2=-0.1
 
   table(trt_all,sex) #trt 2 has more males
   mean(age[trt_all==1]);mean(age[trt_all==2]) #trt 2 has more older
+  # Q: Should trt assignment and sex/age be independent?
+  # --> No. We want the dataset to behave like real-world treatment data, not a perfect RCT
   
   
   #select 100 for the dataset
@@ -128,7 +134,7 @@ theta_sex2=-0.1
   beta0=-4
   beta0b=beta0-log(HR_true)
   
-  
+  # exponential survival: constant hazard over time (assumption)
   xz=beta_age*(mean(c(age1,age2)))+beta_sex*(mean(c(sex1,sex2)))
   
   rate1=exp(beta0)*exp(beta_age*(age1-age_avg)+beta_sex*(sex1-0.5))
@@ -163,10 +169,15 @@ theta_sex2=-0.1
   
   S1=data.frame(y=S1,failed=delta1)
   S2=data.frame(y=S2,failed=delta2)
-  
+  # Q: current exponential dist assume event will happen at the end anyway.
+  # then T=min(S,C), where S is the true survival time and C is the censored observed time
+  # But in case some cancer pts cured and no event (death) at all, we then 
+  # need to consider the mixture survival model -> choose cured + assign Inf survival time
   
 # Q: How to control the censor rate (say about 30% has censoring)?
-  
+# A: more censoring time zc -> less censored pts, smaller censor rate
+  # delta1 <- (S1 <= C1); censor_rate <- mean(!delta1). We can search through
+  # zc values to find censor rate 30%
 ###################
 
 
@@ -215,13 +226,43 @@ for(j in 1:tt){
 
 
 # Q: We simulated the survival data using the exponential distributions, how to simulate data with competing risks?
+# A: competing risk have multiple possible event types, and whichever
+# happens first is the observed event.--> replace the observed event and observed time section
+rate_event1 = 0.02
+rate_event2 = 0.01
+
+T1 = rexp(n, rate_event1)   # event type 1
+T2 = rexp(n, rate_event2)   # event type 2
+
+T = pmin(T1, T2)
+event = ifelse(T1 < T2, 1, 2)
+# We can then add censoring as previously
+
+
+
 
 # Q: Exponential is an easy choice, but there are other distributions like log-logistic, Weibull. What are their pros and cons?
+# Exponential: constant hazard;simple, easy simulation; but unrealistic for many diseases
+# Weibull: monotonic increase or decrease; widely used; but cannot model peak hazards
+# Log-logistic: non-monotonic (rise then fall); can model complex shape;heavy tails on long survial time
 
 
 
+## Updae 2026.3.27
+observed <- rep(FALSE, tt)
+observed[xa] <- TRUE
 
-
+for (j in 1:tt) {
+  if (!observed[j]) {
+    U1b[, j] <- NA
+    U2b[, j] <- NA
+  } else {
+    hua <- sample(c(1, NA), size=n1, prob=c(1-p_missU, p_missU), replace=TRUE)
+    U1b[, j] <- hua * U1[, j]
+    hua <- sample(c(1, NA), size=n2, prob=c(1-p_missU, p_missU), replace=TRUE)
+    U2b[, j] <- hua * U2[, j]
+  }
+}
 
 
 
