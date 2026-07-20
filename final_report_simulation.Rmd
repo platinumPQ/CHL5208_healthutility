@@ -876,7 +876,7 @@ study <- run_power_study(nsim = 30, nperm = 100, seed= 100)
 study$summary
 ```
 
-# Significance heatmap
+# Outputs generation
 ```{r}
 library(ggplot2)
 library(dplyr)
@@ -932,7 +932,7 @@ power_heatmap_data <- study$summary %>%
 
 fig_power_heatmap_labeled <- ggplot(
   power_heatmap_data,
-  aes(x = scenario_label, y = test, fill = rejection_rate)
+  aes(x = scenario, y = test, fill = rejection_rate)
 ) +
   geom_tile(color = "white", linewidth = 1) +
   geom_text(aes(label = label), size = 3.8) +
@@ -944,7 +944,7 @@ fig_power_heatmap_labeled <- ggplot(
   ) +
   labs(
     title = "Empirical Rejection Rates Across Simulation Scenarios",
-    subtitle = "Scenario A = type I error; Scenarios B-G = empirical power",
+    #subtitle = "Scenario A = type I error; Scenarios B-G = empirical power",
     x = "Simulation Scenario",
     y = "Test"
   ) +
